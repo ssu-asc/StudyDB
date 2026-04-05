@@ -4,6 +4,10 @@ ASC 7주 집중 심화 스터디 문제 및 풀이 관리 시스템
 
 멘토가 매주 문제를 출제하고, 학생들이 풀이(writeup)를 제출하면 관리자 리뷰 후 merge 시 자동으로 Notion DB에 동기화됩니다.
 
+## 마감
+
+- **매주 화요일 23:59** 까지 PR merge 완료 시 해당 주차 제출로 인정
+
 ## 트랙
 
 | 트랙 | 설명 |
@@ -90,6 +94,7 @@ git push origin solve/web/week-01/sql-injection-basic
 [멘토/학생] -> fork/branch -> [PR 제출] -> 리뷰 -> [merge] -> [GitHub Actions] -> [Notion DB]
                                    |                              |
                              CI: frontmatter 검증         변경된 .md 파싱 -> 동기화
+                                                          + 제출 현황 체크박스 업데이트
 ```
 
 ## 설정 (관리자)
@@ -100,6 +105,7 @@ git push origin solve/web/week-01/sql-injection-basic
 |--------|------|
 | `NOTION_API_KEY` | Notion Internal Integration Token |
 | `NOTION_STUDY_DB_ID` | 스터디 Notion DB ID |
+| `NOTION_TRACKING_DB_ID` | 제출 현황 DB ID |
 
 ### Notion DB 스키마
 
