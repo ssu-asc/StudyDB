@@ -1,0 +1,6 @@
+# 로컬 테스트(`wrangler dev`)용 환경값 예시.
+# 실제 값으로 채운 뒤 .dev.vars 로 복사하세요 (.dev.vars 는 git 에 올라가지 않습니다).
+DISCORD_APPLICATION_ID=1521471999115788309
+DISCORD_PUBLIC_KEY=5a3ef6811e6edf04f48f0ea76d3383f0a7ad7b72de8859d8397f688df7a453ad
+GITHUB_REPO=ssu-asc/StudyDB
+GITHUB_TOKEN=

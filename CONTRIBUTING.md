@@ -8,7 +8,7 @@
 challenges/{트랙}/week-{주차}/{문제명}/
 ```
 
-- **트랙**: `web`, `pwn`, `rev`, `forensic`
+- **트랙**: `web`, `pwn`, `forensic`
 - **주차**: `week-01` ~ `week-07`
 - **문제명**: 소문자, 공백은 하이픈으로 (예: `sql-injection-basic`, `heap-overflow`)
 

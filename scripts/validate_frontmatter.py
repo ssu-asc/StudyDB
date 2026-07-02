@@ -15,7 +15,7 @@ from pathlib import Path
 
 import frontmatter
 
-VALID_TRACKS = {"web", "pwn", "rev", "forensic"}
+VALID_TRACKS = {"web", "pwn", "forensic"}
 VALID_DIFFICULTIES = {"easy", "medium", "hard"}
 VALID_CL_LEVELS = {"CL1", "CL2"}
 

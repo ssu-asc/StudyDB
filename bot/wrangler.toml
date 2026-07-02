@@ -1,0 +1,38 @@
+name = "studydb-discord-bot"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# 비밀이 아닌 값 (공개되어도 무방하므로 여기에 둡니다)
+[vars]
+DISCORD_APPLICATION_ID = "1521471999115788309"
+DISCORD_PUBLIC_KEY = "5a3ef6811e6edf04f48f0ea76d3383f0a7ad7b72de8859d8397f688df7a453ad"
+GITHUB_REPO = "ssu-asc/StudyDB"
+
+# 트랙별 포럼 채널 ID (디스코드에서 포럼 채널 만들고 "채널 ID 복사"로 채우세요)
+FORUM_WEB = "1521493781793345627"
+FORUM_PWN = "1521493193471033476"
+FORUM_FORENSIC = "1521493869928251487"
+
+# 비공개 제출 스레드를 만들 텍스트 채널 ID (기본/fallback)
+SUBMIT_CHANNEL = "1521902083467382854"
+
+# 트랙별 제출 채널 (없으면 위 SUBMIT_CHANNEL 사용)
+SUBMIT_WEB = "1522062571874684938"
+SUBMIT_PWN = "1522062626161692842"
+SUBMIT_FORENSIC = "1522062667672719421"
+
+# 1주차가 끝나는 일요일 (일 23:59 KST 마감). 스터디 시작 2026-07-06(월) → 1주차 마감 07-12(일).
+STUDY_WEEK1_DEADLINE = "2026-07-12"
+
+# 임시 저장(비공개 풀이 등)용 KV
+[[kv_namespaces]]
+binding = "STUDYDB"
+id = "e5f8ed71b97847a3a3625f0183d5d678"
+
+# 매주 월 00:00 KST (일 15:00 UTC) 마감 지난 주차 자동 공개
+[triggers]
+crons = ["0 15 * * SUN"]
+
+# 비밀 값은 절대 커밋하지 말고 아래 명령으로 등록하세요:
+#   npx wrangler secret put GITHUB_TOKEN   (GitHub PAT)
+#   npx wrangler secret put DISCORD_BOT_TOKEN   (봇 토큰 - 포럼 글/댓글 생성용)

@@ -418,11 +418,14 @@ def sync_file(notion: Client, database_id: str, filepath: Path) -> None:
         )
         print(f"[CREATE] ({submission_type}) {challenge_name} - {author}")
 
-    # 제출 현황 DB 체크박스 업데이트
-    week_number = os.environ.get("WEEK_NUMBER", "")
+    # 제출 현황 DB 체크박스 업데이트 (출석)
+    # 주차는 PR 코멘트(WEEK_NUMBER)가 있으면 우선 사용하고, 없으면 frontmatter의 week로
+    # fallback 합니다. 디스코드 봇처럼 PR 코멘트 없이 main에 직접 커밋되는 경로에서도
+    # 풀이 제출 시 출석이 체크되도록 하기 위함입니다.
+    week_for_tracking = os.environ.get("WEEK_NUMBER") or metadata.get("week")
     tracking_db_id = os.environ.get("NOTION_TRACKING_DB_ID", "")
-    if week_number and tracking_db_id and author:
-        update_tracking_checkbox(notion, tracking_db_id, author, int(week_number))
+    if is_solve and week_for_tracking and tracking_db_id and author:
+        update_tracking_checkbox(notion, tracking_db_id, author, int(week_for_tracking))
 
 
 def main() -> int:

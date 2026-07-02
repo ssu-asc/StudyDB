@@ -14,6 +14,11 @@ build/
 .env
 .env.local
 
+# Node / Cloudflare Worker (bot/)
+node_modules/
+.dev.vars
+.wrangler/
+
 # IDE
 .vscode/
 .idea/

@@ -14,7 +14,6 @@ ASC 7주 집중 심화 스터디 문제 및 풀이 관리 시스템
 |------|------|
 | `web` | 웹 해킹 |
 | `pwn` | 시스템 해킹 |
-| `rev` | 리버스 엔지니어링 |
 | `forensic` | 포렌식 |
 
 ## 구조
@@ -48,7 +47,19 @@ cp templates/challenge-template.md challenges/web/week-01/sql-injection-basic/RE
 # README.md 작성 + 문제 파일 추가
 ```
 
-### 학생: 풀이 제출
+### 학생: 풀이 제출 (디스코드 — 권장)
+
+디스코드에서 `/제출` 슬래시 커맨드를 쓰면 GitHub 커밋·PR 없이 바로 제출됩니다.
+
+```
+/제출 track:web week:1 cl:CL1
+→ 모달에 학번_이름 / 문제명 / 폴더명 / 태그 / 풀이 본문 입력 → 제출
+→ main 에 자동 커밋 → 곧 Notion 동기화 + 출석(SW{주차}) 체크
+```
+
+봇 설정 방법은 [bot/README.md](bot/README.md)를 참고하세요.
+
+### 학생: 풀이 제출 (GitHub PR)
 
 ```bash
 # 레포 Fork & Clone
@@ -91,11 +102,15 @@ git push origin solve/web/week-01/sql-injection-basic
 ## 파이프라인
 
 ```
-[멘토/학생] -> fork/branch -> [PR 제출] -> 리뷰 -> [merge] -> [GitHub Actions] -> [Notion DB]
-                                   |                              |
-                             CI: frontmatter 검증         변경된 .md 파싱 -> 동기화
-                                                          + 제출 현황 체크박스 업데이트
+[디스코드] /제출 -> [봇: Cloudflare Worker] -> main 직접 커밋 ──┐
+                                                              ├─> [GitHub Actions] -> [Notion DB]
+[멘토/학생] -> fork/branch -> [PR 제출] -> 리뷰 -> [merge] ────┘          |
+                                   |                          변경된 .md 파싱 -> 동기화
+                             CI: frontmatter 검증              + 제출 현황 체크박스(출석) 업데이트
 ```
+
+출석 주차는 PR 코멘트(`/week N`)가 있으면 그 값을, 없으면 frontmatter 의 `week` 값을 사용합니다.
+(디스코드 직접 커밋 경로는 PR 코멘트가 없으므로 frontmatter 의 `week` 로 출석이 체크됩니다.)
 
 ## 설정 (관리자)
 
@@ -112,7 +127,7 @@ git push origin solve/web/week-01/sql-injection-basic
 | 속성명 | 타입 | 비고 |
 |--------|------|------|
 | 제목 | Title | `{challenge_name} - {author}` |
-| 분야 | Select | web / pwn / rev / forensic |
+| 분야 | Select | web / pwn / forensic |
 | 주차 | Number | 1-7 |
 | 문제명 | Rich Text | challenge_name |
 | 작성자 | Rich Text | author |
