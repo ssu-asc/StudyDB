@@ -6,9 +6,10 @@
  *   멘토: /주차개설 track week → 그 포럼에 [week-N 문제] + [week-N 제출(📝버튼)] 2글
  *   출제자                   → [문제] 글에 문제·파일 자유롭게 게시
  *   학생: /등록 학번_이름     → 디코 계정 ↔ 학번_이름 매핑 (제출 전 1회)
- *   학생: 📝 제출            → 모달 없이 #제출함에 본인+멘토만 보이는 비공개 스레드 생성
- *                             → 거기에 풀이 설명 + 파일 업로드. 출석 즉시 ✓
- *   마감 후                  → (크론 월 00:00 KST 또는 /공개 week:N) 스레드 내용(글+첨부)을 레포에 커밋
+ *   학생: 📝 제출            → 모달 없이 제출 채널에 본인+멘토만 보이는 비공개 스레드 생성
+ *                             → 거기에 풀이 설명 + 파일 업로드 (상태: 검토중)
+ *   멘토: ✅승인 / ❌반려     → 스레드의 검토 버튼. **승인해야 출석 인정**
+ *   마감 후                  → (크론 월 00:00 KST 또는 /공개 week:N) 승인된 제출만 레포에 커밋
  *
  * 상태: KV(STUDYDB) — members / boards / prob:{track}:{week} / sub:{week}:{track}:{author}
  *
@@ -51,9 +52,9 @@ export default {
     }
 
     if (interaction.type === Type.COMPONENT) {
-      if (String(interaction.data.custom_id || "").startsWith("solve|")) {
-        return run(ctx, handleSubmitButton(interaction, env));
-      }
+      const cid = String(interaction.data.custom_id || "");
+      if (cid.startsWith("solve|")) return run(ctx, handleSubmitButton(interaction, env));
+      if (cid.startsWith("review|")) return run(ctx, handleReview(interaction, env));
       return ephemeral("알 수 없는 버튼입니다.");
     }
 
@@ -150,23 +151,80 @@ async function handleSubmitButton(interaction, env) {
       `**${challengeName}** 제출 · \`${author}\`\n여기에 풀이 설명과 **파일을 업로드**하세요. 마감 후 자동으로 레포에 정리됩니다. (본인과 멘토만 볼 수 있어요)`
     );
 
-    await env.STUDYDB.put(key, JSON.stringify({ challengeName, threadId: thread.id, date: kstDate(), published: false }),
-      { metadata: { author, track, week } });
+    // 멘토 검토용 버튼 (승인해야 출석 인정)
+    await discordApi(env, "POST", `/channels/${thread.id}/messages`, {
+      content: "🧑‍🏫 **멘토 검토** — 풀이를 확인한 뒤 아래 버튼을 눌러주세요. (승인해야 출석 인정)",
+      components: [reviewRow(week, track, author)],
+    });
+
+    await env.STUDYDB.put(
+      key,
+      JSON.stringify({ challengeName, threadId: thread.id, date: kstDate(), status: "pending", published: false }),
+      { metadata: { author, track, week, status: "pending" } }
+    );
 
     if (interaction.channel_id) {
       await discordApi(env, "POST", `/channels/${interaction.channel_id}/messages`, {
-        content: `✅ **${author}** 제출 시작 (week-${pad(week)})`,
+        content: `📝 **${author}** 제출 시작 (week-${pad(week)}) — 멘토 검토 대기`,
       });
     }
 
     try {
       await ensureMember(env, author, discordId, track);
-      await updateBoards(env, new Set([`${author}|${track}|${week}`]));
+      await updateBoards(env, [[`${author}|${track}|${week}`, "pending"]]);
     } catch (e) {
       console.error("board update failed:", e.message || e);
     }
 
-    return followup(interaction, env, `✅ 비공개 제출 스레드 생성됨 → <#${thread.id}>\n여기에 설명과 파일을 올려주세요.`);
+    return followup(
+      interaction, env,
+      `✅ 비공개 제출 스레드 생성됨 → <#${thread.id}>\n여기에 설명과 파일을 올려주세요. **멘토 승인 후 출석 인정**됩니다.`
+    );
+  } catch (err) {
+    return followup(interaction, env, `❌ 처리 중 오류: ${err.message || err}`);
+  }
+}
+
+/* ─────────────────────────── 멘토: 승인 / 반려 ─────────────────────────── */
+
+/** 그 채널에서 '스레드 관리' 또는 관리자 권한이 있으면 멘토로 본다. */
+function isMentor(interaction) {
+  try {
+    const perms = BigInt(interaction.member?.permissions || "0");
+    return (perms & (1n << 34n)) !== 0n || (perms & (1n << 3n)) !== 0n; // MANAGE_THREADS | ADMINISTRATOR
+  } catch {
+    return false;
+  }
+}
+
+async function handleReview(interaction, env) {
+  try {
+    const parts = String(interaction.data.custom_id || "").split("|"); // review|action|week|track|author
+    const action = parts[1];
+    const week = parseInt(parts[2], 10);
+    const track = parts[3];
+    const author = parts.slice(4).join("|");
+
+    if (!isMentor(interaction)) return followup(interaction, env, "❌ 멘토만 승인/반려할 수 있어요.");
+
+    const key = `sub:${week}:${track}:${author}`;
+    const rec = await kvGetJson(env, key);
+    if (!rec) return followup(interaction, env, "❌ 제출 기록을 찾을 수 없어요.");
+
+    rec.status = action === "approve" ? "approved" : "rejected";
+    await env.STUDYDB.put(key, JSON.stringify(rec), { metadata: { author, track, week, status: rec.status } });
+
+    const who = interaction.member?.user?.id;
+    if (interaction.channel_id) {
+      await discordApi(env, "POST", `/channels/${interaction.channel_id}/messages`, {
+        content:
+          rec.status === "approved"
+            ? `✅ **승인** — 출석 인정됩니다. (검토: <@${who}>)`
+            : `❌ **반려** — 보완해서 다시 올려주세요. 보완 후 멘토가 다시 승인하면 출석 인정됩니다. (검토: <@${who}>)`,
+      });
+    }
+    await updateBoards(env);
+    return followup(interaction, env, rec.status === "approved" ? "✅ 승인 완료" : "❌ 반려 완료");
   } catch (err) {
     return followup(interaction, env, `❌ 처리 중 오류: ${err.message || err}`);
   }
@@ -193,7 +251,7 @@ async function handleRegister(interaction, env) {
 async function handleCreateBoard(interaction, env) {
   try {
     const { members } = await loadMembers(env);
-    const set = subsSet(await listSubs(env));
+    const status = subsMap(await listSubs(env));
     const boards = await loadBoards(env);
     const results = [];
     for (const track of TRACKS) {
@@ -202,7 +260,7 @@ async function handleCreateBoard(interaction, env) {
       if (boards[track] && (await channelExists(env, boards[track]))) { results.push(`- ${track}: 이미 있음`); continue; }
       const res = await discordApi(env, "POST", `/channels/${forumId}/threads`, {
         name: "📊 제출 현황",
-        message: { content: clip(renderBoard(members, set, track), 1990) },
+        message: { content: clip(renderBoard(members, status, track), 1990) },
       });
       if (!res.ok) { results.push(`- ${track}: 생성 실패 (${res.status})`); continue; }
       boards[track] = (await res.json()).id;
@@ -220,15 +278,17 @@ async function updateBoards(env, extra) {
   const tracks = Object.keys(boards).filter((t) => boards[t]);
   if (!tracks.length) return;
   const { members } = await loadMembers(env);
-  const set = subsSet(await listSubs(env), extra);
+  const status = subsMap(await listSubs(env), extra);
   for (const track of tracks) {
     await discordApi(env, "PATCH", `/channels/${boards[track]}/messages/${boards[track]}`, {
-      content: clip(renderBoard(members, set, track), 1990),
+      content: clip(renderBoard(members, status, track), 1990),
     });
   }
 }
 
-function renderBoard(members, set, track) {
+const MARK = { approved: "🟩", pending: "🟨", rejected: "🟥" };
+
+function renderBoard(members, status, track) {
   const roster = members
     .filter((m) => (m.tracks || []).includes(track))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -236,14 +296,14 @@ function renderBoard(members, set, track) {
   if (!roster.length) {
     return `${head}\n\n_등록된 스터디원이 없어요. \`/등록 track:${track} id:학번_이름\`_`;
   }
-  const lines = [head, "🟩 제출 · ⬜ 미제출 · (왼→오 W1~W" + WEEKS + ")", ""];
+  const lines = [head, `🟩 승인(출석) · 🟨 검토중 · 🟥 반려 · ⬜ 미제출 · (왼→오 W1~W${WEEKS})`, ""];
   for (const m of roster) {
     let marks = "";
     let cnt = 0;
     for (let w = 1; w <= WEEKS; w++) {
-      const done = set.has(`${m.name}|${track}|${w}`);
-      marks += done ? "🟩" : "⬜";
-      if (done) cnt++;
+      const st = status.get(`${m.name}|${track}|${w}`);
+      marks += st ? MARK[st] || "🟨" : "⬜";
+      if (st === "approved") cnt++;
     }
     lines.push(`\`${m.name}\`  ${marks}  ${cnt}/${WEEKS}`);
   }
@@ -290,6 +350,7 @@ async function publishWeek(env, week) {
       if (!raw) continue;
       const s = JSON.parse(raw);
       if (s.published) continue;
+      if (s.status !== "approved") continue; // 멘토 승인된 것만 공개
       const p = k.name.split(":"); // sub:week:track:author
       const track = p[2];
       const author = p.slice(3).join(":");
@@ -417,18 +478,22 @@ async function listSubs(env) {
   return out;
 }
 
-function subsSet(keys, extra) {
-  const set = new Set(extra || []);
+/** KV 키 목록 → Map("author|track|week" → status) */
+function subsMap(keys, extra) {
+  const map = new Map(extra || []);
   for (const k of keys) {
-    const m = k.metadata;
-    if (m && m.author && m.track && m.week != null) {
-      set.add(`${m.author}|${m.track}|${m.week}`);
-    } else {
+    const m = k.metadata || {};
+    let { author, track, week, status } = m;
+    if (!author || !track || week == null) {
       const p = k.name.split(":"); // sub:week:track:author
-      if (p.length >= 4) set.add(`${p.slice(3).join(":")}|${p[2]}|${parseInt(p[1], 10)}`);
+      if (p.length < 4) continue;
+      week = parseInt(p[1], 10);
+      track = p[2];
+      author = p.slice(3).join(":");
     }
+    map.set(`${author}|${track}|${week}`, status || "pending");
   }
-  return set;
+  return map;
 }
 
 /* ─────────────────────────── GitHub ─────────────────────────── */
@@ -512,6 +577,16 @@ async function followup(interaction, env, content) {
 
 function buttonRow(customId) {
   return { type: 1, components: [{ type: 2, style: 1, label: "📝 제출", custom_id: customId }] };
+}
+
+function reviewRow(week, track, author) {
+  return {
+    type: 1,
+    components: [
+      { type: 2, style: 3, label: "✅ 승인", custom_id: `review|approve|${week}|${track}|${author}` },
+      { type: 2, style: 4, label: "❌ 반려", custom_id: `review|reject|${week}|${track}|${author}` },
+    ],
+  };
 }
 
 function ephemeral(content) {
