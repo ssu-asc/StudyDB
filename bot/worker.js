@@ -350,7 +350,7 @@ async function publishWeek(env, week) {
       if (!raw) continue;
       const s = JSON.parse(raw);
       if (s.published) continue;
-      if (s.status !== "approved") continue; // 멘토 승인된 것만 공개
+      if ((s.status || "approved") !== "approved") continue; // 멘토 승인된 것만 공개(레거시는 승인 취급)
       const p = k.name.split(":"); // sub:week:track:author
       const track = p[2];
       const author = p.slice(3).join(":");
@@ -491,7 +491,8 @@ function subsMap(keys, extra) {
       track = p[2];
       author = p.slice(3).join(":");
     }
-    map.set(`${author}|${track}|${week}`, status || "pending");
+    // status 없는 기록 = 승인 기능 이전 제출 → 기존 규칙대로 승인 처리(출석 유지)
+    map.set(`${author}|${track}|${week}`, status || "approved");
   }
   return map;
 }
