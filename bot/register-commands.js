@@ -87,6 +87,46 @@ const commands = [
       },
     ],
   },
+  {
+    name: "판정",
+    description: "특정 제출을 승인/반려합니다 (멘토용, 버튼 없는 옛 제출도 가능)",
+    options: [
+      {
+        type: 3,
+        name: "track",
+        description: "트랙",
+        required: true,
+        choices: [
+          { name: "web", value: "web" },
+          { name: "pwn", value: "pwn" },
+          { name: "forensic", value: "forensic" },
+        ],
+      },
+      {
+        type: 4,
+        name: "week",
+        description: "주차 (1-7)",
+        required: true,
+        choices: Array.from({ length: 7 }, (_, i) => ({ name: `${i + 1}주차`, value: i + 1 })),
+      },
+      {
+        type: 3,
+        name: "id",
+        description: "학번_이름 (예: 20252718_김도형)",
+        required: true,
+      },
+      {
+        type: 3,
+        name: "result",
+        description: "판정",
+        required: true,
+        choices: [
+          { name: "승인", value: "approved" },
+          { name: "반려", value: "rejected" },
+        ],
+      },
+    ],
+  },
 ];
 
 const url = GUILD_ID

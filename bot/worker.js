@@ -48,6 +48,7 @@ export default {
       if (name === "등록") return run(ctx, handleRegister(interaction, env));
       if (name === "현황생성") return run(ctx, handleCreateBoard(interaction, env));
       if (name === "공개") return run(ctx, handlePublish(interaction, env));
+      if (name === "판정") return run(ctx, handleVerdict(interaction, env));
       return ephemeral("알 수 없는 명령입니다.");
     }
 
@@ -225,6 +226,36 @@ async function handleReview(interaction, env) {
     }
     await updateBoards(env);
     return followup(interaction, env, rec.status === "approved" ? "✅ 승인 완료" : "❌ 반려 완료");
+  } catch (err) {
+    return followup(interaction, env, `❌ 처리 중 오류: ${err.message || err}`);
+  }
+}
+
+/** /판정 — 멘토가 특정 제출을 손으로 승인/반려 (옛 제출·버튼 없는 것도 처리 가능) */
+async function handleVerdict(interaction, env) {
+  try {
+    if (!isMentor(interaction)) return followup(interaction, env, "❌ 멘토만 판정할 수 있어요.");
+    const o = optionMap(interaction);
+    const track = String(o.track || "");
+    const week = parseInt(o.week, 10);
+    const author = String(o.id || "").trim();
+    const result = String(o.result || ""); // approved | rejected
+    if (!TRACKS.includes(track) || !(week >= 1 && week <= WEEKS) || !AUTHOR_RE.test(author) || !["approved", "rejected"].includes(result)) {
+      return followup(interaction, env, "❌ 입력 확인: track / week(1-7) / id(학번_이름) / result");
+    }
+    const key = `sub:${week}:${track}:${author}`;
+    const rec = await kvGetJson(env, key);
+    if (!rec) return followup(interaction, env, `❌ 제출 기록 없음: ${author} · ${track} week-${pad(week)}`);
+
+    rec.status = result;
+    await env.STUDYDB.put(key, JSON.stringify(rec), { metadata: { author, track, week, status: result } });
+    if (rec.threadId) {
+      await discordApi(env, "POST", `/channels/${rec.threadId}/messages`, {
+        content: result === "approved" ? `✅ **승인** (멘토 판정) — 출석 인정` : `❌ **반려** (멘토 판정)`,
+      }).catch(() => {});
+    }
+    await updateBoards(env);
+    return followup(interaction, env, `${result === "approved" ? "✅ 승인" : "❌ 반려"}: ${author} · ${track} week-${pad(week)}`);
   } catch (err) {
     return followup(interaction, env, `❌ 처리 중 오류: ${err.message || err}`);
   }
