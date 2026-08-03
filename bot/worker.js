@@ -291,6 +291,7 @@ async function handleCreateBoard(interaction, env) {
       if (boards[track] && (await channelExists(env, boards[track]))) { results.push(`- ${track}: 이미 있음`); continue; }
       const res = await discordApi(env, "POST", `/channels/${forumId}/threads`, {
         name: "📊 제출 현황",
+        auto_archive_duration: 10080,
         message: { content: clip(renderBoard(members, status, track), 1990) },
       });
       if (!res.ok) { results.push(`- ${track}: 생성 실패 (${res.status})`); continue; }
@@ -311,6 +312,8 @@ async function updateBoards(env, extra) {
   const { members } = await loadMembers(env);
   const status = subsMap(await listSubs(env), extra);
   for (const track of tracks) {
+    // 보드 스레드가 자동 보관(archive)되면 메시지 편집이 막힌다 → 먼저 언아카이브
+    await discordApi(env, "PATCH", `/channels/${boards[track]}`, { archived: false, auto_archive_duration: 10080 });
     await discordApi(env, "PATCH", `/channels/${boards[track]}/messages/${boards[track]}`, {
       content: clip(renderBoard(members, status, track), 1990),
     });
